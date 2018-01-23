@@ -51,9 +51,11 @@ class Server(BaseServer):
         try:
             for (cmd, sid, data) in parse(data):
                 if cmd == Command.dead:
-                    self.log.info("Session Dead")
-                    assert(isinstance(self.listener, BaseListener))
-                    self.listener.del_session(sid)
+                    self.log.warning("Session {:08x} dead.".format(sid))
+                    sess = self.get_session(sid)
+                    if sess:
+                        sess.close()
+                        self.del_session(sid)
                     return
 
                 if cmd == Command.init:
@@ -101,7 +103,7 @@ class Server(BaseServer):
                         session.send(data)
 
         except ValueError as e:
-            print("[Server] Error Received: {}".format(e), file=sys.stderr)
+            self.log.critical("Error: {}".format(e))
             self.transport.write(compose(Command.invalid, 0, None))
             self.transport.close()
             return

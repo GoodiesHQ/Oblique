@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from oblique.bases import BaseServer, BaseListener
 from oblique.commands import Command, compose
 
@@ -9,6 +8,8 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
     Listener protocol for oblique.
     Listeners will accept connections from endpoints, associate with a session ID,
     and tunnel over the main Oblique server/client connection.
+
+    One ListenerTCP instance will be created for each incoming connection.
     """
 
     def __init__(self, server: BaseServer):
@@ -65,4 +66,16 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
         :param data: data to send
         :return: None
         """
-        self.transport.write(data)
+        try:
+            self.transport.write(data)
+        except Exception as e:
+            print(e)
+
+    def close(self) -> None:
+        self.log.info("Session {:08x} Closed".format(self.session_id))
+        try:
+            if self.transport.can_write_eof():
+                self.transport.write_eof()
+            self.transport.close()
+        except Exception as e:
+            print(e)

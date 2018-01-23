@@ -2,18 +2,21 @@ import asyncio
 import os
 import struct
 import threading
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from contextlib import suppress
 from logging import Logger
 from typing import Union
 from oblique.log import make_logger
 
-__all__ = ["BaseLoggable", "BaseSender", "BaseServer", "BaseListener", "BaseClient", "BaseRepeater"]
+__all__ = [
+    "BaseLoggable", "BaseSession", "BaseSessionTracking", "BaseComponent",
+    "BaseServer", "BaseListener", "BaseClient", "BaseRepeater"
+]
 
 
 class BaseLoggable(object):
     """
-    Base Loggable class. Anything that should implement logging via self.log()
+    Base Loggable class. Anything that should implement logging via self.log
     """
     _log = None
 
@@ -29,7 +32,7 @@ class BaseLoggable(object):
         return self._log
 
 
-class BaseSender(ABC):
+class BaseSession(ABC):
     """
     Base sender class. Anything that implements the .send() method.
     """
@@ -37,6 +40,13 @@ class BaseSender(ABC):
     def send(self, data: bytes) -> None:
         """
         Send the data according to the classes own way of sending data.
+        :return: None
+        """
+
+    @abstractmethod
+    def close(self) -> None:
+        """
+        Close the connection.
         :return: None
         """
 
@@ -60,7 +70,7 @@ class BaseSessionTracking(object):
         self.id_container.add(i)
         return i
 
-    def add_session(self, session_id: int, sender: Union[BaseSender, None]) -> None:
+    def add_session(self, session_id: int, sender: Union[BaseSession, None]) -> None:
         """
         Register a session with a server so it knows which connection to proxy
 
@@ -112,7 +122,7 @@ class BaseServer(BaseComponent):
     """
 
 
-class BaseListener(BaseSender, BaseLoggable):
+class BaseListener(BaseSession, BaseLoggable):
     """
     Base listener class. Stores the parent server.
     """
@@ -120,23 +130,21 @@ class BaseListener(BaseSender, BaseLoggable):
         super().__init__()
         self.server = server
 
-    @abstractmethod
-    def send(self, data: bytes):
-        """Implemented by each listener."""
-
 
 class BaseClient(BaseComponent):
-    pass
+    """
+    Base client class. Handles communication to Oblique servers
+    """
 
 
-class BaseRepeater(BaseSender, BaseLoggable):
+class BaseRepeater(BaseSession, BaseLoggable):
     """
     Base repeater class. Stores the parent client.
     """
     def __init__(self, client):
+        """
+        Each repeater is associated with a single client instance
+        :param client:
+        """
         super().__init__()
         self.client = client
-
-    @abstractmethod
-    def send(self, data: bytes):
-        """Implemented by each repeater."""

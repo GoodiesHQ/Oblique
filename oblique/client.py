@@ -1,6 +1,6 @@
 import asyncio
 import struct
-import sys
+from contextlib import suppress
 from collections import defaultdict
 from functools import partial
 from oblique.commands import Command, Mode, compose, parse
@@ -20,7 +20,7 @@ class Client(BaseClient):
         self.buffers = defaultdict(list)
         super().__init__(loop=loop)
 
-    def try_send(self, session_id: int, data: bytes=None, retries: int=3, delay: int=100):
+    def try_send(self, session_id: int, data: bytes=None, retries: int=3, delay: float=0.25):
         """
         Attempt to send data through a repeater. If no session exists, connection may not have fully opened.
         Retry (3 times by default).
@@ -31,9 +31,12 @@ class Client(BaseClient):
         :param delay: delay, in milliseconds, between attempts
         :return:
         """
+
         if retries == 0:
+            self.log.info("Max Retries. Session {:08x} unavailable.".format(session_id))
             del self.buffers[session_id]
             self.del_session(session_id)
+            self.transport.write(compose(Command.dead, session_id, None))
             return
 
         if data is not None:
@@ -41,6 +44,7 @@ class Client(BaseClient):
 
         repeater = self.get_session(session_id)
         if repeater is None:
+            self.log.info("Retrying Session {:08x}...".format(session_id))
             self.loop.call_later(delay, self.try_send, session_id, None, retries-1)
             return
 
@@ -48,7 +52,7 @@ class Client(BaseClient):
             try:
                 repeater.send(buf)
             except Exception as e:
-                print("[Repeater] {}".format(e), file=sys.stderr)
+                self.log.error(e)
 
         self.buffers[session_id].clear()
 
@@ -60,7 +64,6 @@ class Client(BaseClient):
         """
         self.transport = transport
         info = "Forwarding to {}:{}".format(self.host, self.port)
-        print("Client ID", id(self.sessions))
         self.transport.write(compose(Command.init, 0, struct.pack(">L", self.mode) + info.encode()))
 
     def data_received(self, data: bytes):
@@ -69,13 +72,26 @@ class Client(BaseClient):
                 if cmd == Command.init:
                     msg = data[4:]
                     if msg:
-                        print("[Client] Init Message Received: {}".format(msg.decode()))
+                        self.log.info("INIT Message: {}".format(msg.decode()))
+
+                if cmd == Command.dead:
+                    self.log.warning("Session {:08x} dead.".format(sid))
+                    sess = self.get_session(sid)
+                    if sess is not None:
+                        sess.close()
 
                 if cmd == Command.open:
                     if self.mode == Mode.tcp:
-                        asyncio.ensure_future(
+                        def tcp_open(conn):
+                            if conn.exception() is not None:
+                                with suppress(KeyError):
+                                    del self.buffers[sid]
+                                self.del_session(sid)
+                                self.transport.write(compose(Command.dead, sid, None))
+                        fut = asyncio.ensure_future(
                             self.loop.create_connection(partial(RepeaterTCP, sid, self), self.host, self.port)
                         )
+                        fut.add_done_callback(tcp_open)
 
                 if cmd == Command.data:
                     self.try_send(sid, data)
@@ -83,7 +99,6 @@ class Client(BaseClient):
             print(e)
             self.transport.close()
             return
-
 
 
 def create_client(dest_host: str, dest_port: int,
