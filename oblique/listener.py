@@ -2,7 +2,6 @@ import asyncio
 import sys
 from oblique.bases import BaseServer, BaseListener
 from oblique.commands import Command, compose
-from oblique.utils import gen_session_id
 
 
 class ListenerTCP(BaseListener, asyncio.Protocol):
@@ -13,9 +12,14 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
     """
 
     def __init__(self, server: BaseServer):
+        """
+        Construct a TCP listener
+        :param server: the main Server from which the listener was spawned
+        """
         super().__init__(server)
         self.transport = None
-        self.session_id = gen_session_id()
+        self.peername = None
+        self.session_id = self.server.gen_session_id()
         self.server.add_session(self.session_id, self)
 
     def connection_lost(self, exc: Exception) -> None:
@@ -25,7 +29,7 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
         :param exc: exception provided by asyncio
         :return: None
         """
-        print("[Listener] Connection Lost. Dead Session: {:08x}".format(self.session_id), file=sys.stderr)
+        self.log.warning("Session {:08x} disconnected from {}:{}".format(self.session_id, *self.peername))
         self.server.del_session(self.session_id)
         self.server.transport.write(compose(Command.dead, self.session_id, None))
         self.transport.close()
@@ -37,9 +41,10 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
         :param transport: endpoint transport provided by asyncio
         :return: None
         """
-        print("[Listener] Connection received. Session ID: {:x}".format(self.session_id))
         self.transport = transport
+        self.peername = transport.get_extra_info("peername")
         self.server.transport.write(compose(Command.open, self.session_id, None))
+        self.log.info("Connection Open: Session {:08x}: {}:{}".format(self.session_id, *self.peername))
 
     def data_received(self, data: bytes) -> None:
         """
@@ -48,7 +53,9 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
         :param data: data sent by the endpoint protocol
         :return: None
         """
+        self.log.debug("Session {:08x} received {} bytes".format(self.session_id, len(data)))
         pkt = compose(Command.data, self.session_id, data)
+        self.log.info("Sendng to {}:{}".format(*self.server.transport.get_extra_info("peername")))
         self.server.transport.write(pkt)
 
     def send(self, data: bytes) -> None:

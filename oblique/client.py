@@ -60,6 +60,7 @@ class Client(BaseClient):
         """
         self.transport = transport
         info = "Forwarding to {}:{}".format(self.host, self.port)
+        print("Client ID", id(self.sessions))
         self.transport.write(compose(Command.init, 0, struct.pack(">L", self.mode) + info.encode()))
 
     def data_received(self, data: bytes):

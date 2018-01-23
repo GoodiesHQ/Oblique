@@ -3,7 +3,7 @@ import asyncio
 try:
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-except Exception as e:
+except ImportError as e:
     print("Running without uvloop")
 
 import oblique
@@ -11,19 +11,12 @@ import oblique
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 8000
 
+
 @asyncio.coroutine
 def main(loop):
     try:
         yield from oblique.create_server(port=8000, loop=loop)
-
-        # Allow SSH to internal 10.1.1.161:22
-        yield from oblique.create_client("10.1.1.161", 22, SERVER_HOST, SERVER_PORT, loop=loop)
-
-        # Allow VNC to internal 10.1.1.161:22
-        yield from oblique.create_client("10.1.1.161", 5900, SERVER_HOST, SERVER_PORT, loop=loop)
-
-        # Allow RDP to internal 10.1.1.5:3389
-        yield from oblique.create_client("10.1.1.5", 3389, SERVER_HOST, SERVER_PORT, loop=loop)
+        yield from oblique.create_client("127.0.0.1", 1234, SERVER_HOST, SERVER_PORT, loop=loop)
     except Exception as e:
         print(e)
 
