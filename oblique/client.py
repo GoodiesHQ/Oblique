@@ -13,6 +13,19 @@ __all__ = ["Client", "create_client"]
 class Client(BaseClient):
     transport = None
 
+    @asyncio.coroutine
+    def heartbeat(self):
+        try:
+            self.log.info("Heartbeat")
+            self.transport.write(compose(Command.beat, 0, None))
+        except Exception as e:
+            print(e)
+            self.log.critical(e)
+            self.transport.close()
+        else:
+            yield from asyncio.sleep(30)
+            asyncio.ensure_future(self.heartbeat(), loop=self.loop)
+
     def __init__(self, host: str, port: int, mode: Mode, loop: asyncio.AbstractEventLoop=None):
         self.host = host
         self.port = port
@@ -63,6 +76,7 @@ class Client(BaseClient):
         :return:
         """
         self.transport = transport
+        asyncio.ensure_future(self.heartbeat(), loop=self.loop)
         info = "Forwarding to {}:{}".format(self.host, self.port)
         self.transport.write(compose(Command.init, 0, struct.pack(">L", self.mode) + info.encode()))
 

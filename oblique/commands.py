@@ -19,6 +19,11 @@ HEADER_LEN = sum([
 
 
 class Mode(enum.IntEnum):
+    """
+    3 modes:
+        MGMT - connection is meant for the management server (dynamically deploys Oblique connections)
+    """
+    mgmt = 0
     tcp = 1
     udp = 2
 
@@ -28,7 +33,8 @@ class Command(enum.IntEnum):
     open = 0x02     # Server packet sent to the client to open a connection
     data = 0x03     # A data packet containing the data to forward
     dead = 0x04     # A connection died
-    invalid = 0xf0  # The data received was invalid
+    beat = 0xAA
+    invalid = 0xF0  # The data received was invalid
 
     @staticmethod
     def valid(cmd: int) -> bool:
@@ -37,6 +43,7 @@ class Command(enum.IntEnum):
             Command.open,
             Command.data,
             Command.dead,
+            Command.beat,
             Command.invalid,
         }
 

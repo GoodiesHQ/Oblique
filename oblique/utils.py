@@ -1,8 +1,24 @@
+import struct
+import os
+
 """
 Various utilities for oblique
 """
 
 __all__ = ["Singleton"]
+
+
+def gen_unique_id(id_container: set=set()) -> int:
+    """
+    Generates a unique ID that is not in the provided container. If no container is provided, a global one is used.
+    :param id_container:
+    :return:
+    """
+    i = None
+    while i is None or i in id_container:
+        i = struct.unpack(">L", os.urandom(4))[0]
+    id_container.add(i)
+    return i
 
 
 class Singleton(type):

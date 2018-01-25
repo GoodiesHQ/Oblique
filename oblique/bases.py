@@ -60,15 +60,10 @@ class BaseSessionTracking(object):
         self.lock = threading.Lock()
         self.sessions = dict()
 
-    def gen_session_id(self) -> int:
+    def gen_unique_id(self) -> int:
         """
         Generate a random 4-byte session ID and ensures that it is not contained in the instance's id_container
         """
-        i = None
-        while i is None or i in self.id_container:
-            i = struct.unpack(">L", os.urandom(4))[0]
-        self.id_container.add(i)
-        return i
 
     def add_session(self, session_id: int, sender: Union[BaseSession, None]) -> None:
         """

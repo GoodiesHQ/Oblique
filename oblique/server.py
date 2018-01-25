@@ -75,7 +75,7 @@ class Server(BaseServer):
                                     self.listener = listener
                                     msg = data[4:]
                                     self.log.info("Created TCP Listener on port {}".format(port))
-                                    self.log.info("Client INIT: {}".format(msg.decode))
+                                    self.log.info("Client INIT: {}".format(msg.decode()))
                                     self.transport.write(
                                         compose(Command.init,
                                                 0,
