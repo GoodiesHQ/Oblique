@@ -1,7 +1,7 @@
 import asyncio
 from oblique.bases import BaseServer, BaseListener
 from oblique.commands import Command, compose
-
+from oblique.utils import gen_unique_id
 
 class ListenerTCP(BaseListener, asyncio.Protocol):
     """
@@ -20,7 +20,7 @@ class ListenerTCP(BaseListener, asyncio.Protocol):
         super().__init__(server)
         self.transport = None
         self.peername = None
-        self.session_id = self.server.gen_session_id()
+        self.session_id = gen_unique_id()
         self.server.add_session(self.session_id, self)
 
     def connection_lost(self, exc: Exception) -> None:
